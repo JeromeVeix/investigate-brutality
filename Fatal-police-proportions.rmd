@@ -1,0 +1,1499 @@
+---
+title: "Investigating Fatal Police Encounters"
+author: "Williem Encarnacion, Jerome Veix, Paula Palles, Zacharia Mwaura"
+output: github_document
+---
+
+```{r}
+Sys.setenv(RSTUDIO_PANDOC="C:/Program Files/RStudio/bin/pandoc")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("rapport")
+library(RColorBrewer)
+library(GISTools)
+library(corrplot)
+library(rapport)
+library(mlogit)
+#install.packages("maps")
+#install.packages("maptools")
+#install.packages("sp")
+library(maps)
+library(maptools)
+library(sp)
+suppressMessages(library(car))
+
+
+colours <- brewer.pal(8, "Pastel2")
+coloursT <- add.alpha(colours, .5)
+```
+
+## File
+```{r}
+police <- read.csv("C:/Users/jamir/Downloads/fatal-police-shootings-data.csv")
+policeData <- na.omit(police)
+policeData1 <-policeData 
+str(police)
+str(policeData)
+
+
+```
+## Graph of race and proportions
+```{r}
+# policeData$threat_level <- factor(policeData$threat_level,
+#                        levels = c("attack", "other","undetermined") ,
+#                        labels = c(0,1,2))
+
+prop <- NULL
+races <- unique(policeData$race)
+for (i in 1:length(races)){
+  prop[i] <- sum(policeData$race == races[i])/length(policeData$race)
+
+}
+races
+prop
+
+
+#policeData$race <- factor(as.numeric(as.character(policeData$race,
+                      #levels = c("A", "W", "H", "B", "O" ,"" , "N") ,
+                      #labels = c(0,1,2,3,4,5,6))))
+
+#as.numeric(as.character(policeData$race))
+
+#"A" "W" "H" "B" "O" ""  "N"
+#str(policeData)
+#policeData
+
+
+prop1 <- NULL
+prop1 <- c(0.059 , 0.763, 0.185 ,0.134,  0 ,  0   , 0.013)
+str(prop1)
+```
+
+```{r}
+xPos1 <- barplot(prop, ylim=c(-0.8,0.8),axes=FALSE, col=colours,border=NA,beside=TRUE,space=c(0.35))
+axis(2, at=pretty(c(-0.8,0.8)), tck=-.01,lwd=2,labels = FALSE )
+mtext(pretty(c(-0.8,0.8)),2,at=pretty(c(-0.8,0.8)), las=1, line=.25)
+mtext(c("Asian", "White", "Hispanic", "Black", "Other" ,"Missing" , "Native\nAmerican"),1, at=xPos1, line=.25, font=2,cex=1,padj =1)
+mtext("Proportion of fatal police shootings",2,line =2.5, font =2, at=0.2,cex=1) 
+mtext("A. Fatal Police Shootings and Race",3,line =.25, font =2,cex=1.25)
+
+xPos2 <- barplot((-1*(prop1)), ylim=c(-0.8,0.8),axes=FALSE, col=coloursT,border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+
+
+#barplot(prop)
+```
+If you compare these ratios to the percentage based off census data:
+
+Data Set: 
+
+"A"             "W"         "H"         "B"         "O"           ""      "N"
+0.015683712 0.453520667 0.166312694 0.238359745 0.007515112 0.104884823 0.013723248
+
+Census Data:
+
+"A"             "W"         "H"         "B"         "O"           ""      "N"
+0.059           0.763       0.185      0.134         NA           NA    0.013
+
+Black people are over represented in this data set as more percentage of them are shot and make up a higher popultion in the dataset than in real life. The dataset doesn't take into account that there are higher populations of white folks so that's why there is more discrepancies than what meets news coverage.
+
+## Males Armed Race Threat Level Proportions
+```{r}
+
+armeddatarefined <- policeData$armed != "unarmed" 
+armeddata <- policeData[armeddatarefined,]
+armeddatarefined1 <- armeddata$armed != ""
+PoliceDataARMED <- armeddata[armeddatarefined1,]
+
+#unique(PoliceDataARMED$race)
+
+
+PoliceDataARMEDMale <- PoliceDataARMED$gender == "M"
+PoliceDataARMEDM <- PoliceDataARMED[PoliceDataARMEDMale,]
+
+#unique(PoliceDataARMEDM$race)
+
+PoliceDataARMEDMaleThreat <- PoliceDataARMEDM$threat_level == "attack"
+PoliceDataARMEDMT <- PoliceDataARMEDM[PoliceDataARMEDMaleThreat,]
+
+unique(PoliceDataARMEDMT$race)
+```
+
+```{r}
+
+propMThreatArmedbyRace <- NULL
+races1 <- unique(PoliceDataARMEDMT$race)
+for (i in 1:length(races1)){
+  propMThreatArmedbyRace[i] <- sum(PoliceDataARMEDMT$race == races1[i])/length(PoliceDataARMEDMT$race)
+
+}
+propMThreatArmedbyRace
+```
+
+
+```{r}
+xPos1 <- barplot(propMThreatArmedbyRace, ylim=c(-0.8,0.8),axes=FALSE, col=rgb(0,0,1,1/4),border=NA,beside=TRUE,space=c(0.35))
+axis(2, at=pretty(c(-0.8,0.8)), tck=-.01,lwd=2,labels = FALSE )
+mtext(pretty(c(-0.8,0.8)),2,at=pretty(c(-0.8,0.8)), las=1, line=.25)
+mtext(c("Asian", "White", "Hispanic", "Black", "Other" ,"Missing" , "Native\nAmerican"),1, at=xPos1, line=.25, font=2,cex=1,padj =1)
+mtext("Frequency",2,line =2, font =2, cex = 1.2, at = 0) 
+
+mtext("A. Fatal Police Shootings, Race, Gender,\n and Armed Status",3,line =.00001, font =2,cex=1.2)
+
+xPos2 <- barplot((-1*(prop1)), ylim=c(-0.8,0.8),axes=FALSE, col=rgb(1,0,0,1/4),border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+
+legend("bottomright", c("Proportion of fatal police shootings\n based on attack threat level", "Proportion of race\n based on census data"), fill = c(rgb(0,0,1,1/4),rgb(1,0,0,1/4)), bty = "n", border = NA)
+
+
+```
+
+This is also a good time to get the unique values from the months variable and create a Month label vector that you can then use to label your axes below.
+#RUN THESE AFTER RERUNNING PoliceDataARMEDMT THAT IS LOCATED AT THE BEGINNING OF THE PROGRAM. MAKE SURE TO NOT RUN THE MAP PROGRAM THAT APPEAR AFTER THAT CODE BECUASE IT ALTERS THE PoliceDataARMEDMT COLUMN.
+
+```{r}
+#RUN AFTER RERUNNING PoliceDataARMEDMT THAT IS LOCATED AT THE BEGINNING OF THE PROGRAM. MAKE SURE TO NOT RUN THE MAP PROGRAM THAT APPEAR AFTER THAT CODE BECUASE IT ALTERS THE PoliceDataARMEDMT COLUMN.
+
+
+#that is located at the beginning of the program. Make sure do not run the map
+
+years <- substr(policeData$date,1, 4)
+uniqueYears <- unique(years)
+YearLabels <- c("2015", "2016","2017","2018","2019",  "2020","2021")
+
+```
+
+```{r}
+yLimit <- range((1:((length(uniqueYears)/2)+2)))
+#xLimit <- range(pretty(length(policeData$manner_of_death)))
+
+
+sunsetColours <- hcl.colors(12,"Sunset")
+```
+
+```{r, fig.width =7, fig.height = 6, fig.cap="Distribution of daily maximum temperatures (in degrees Fahrenheit) for the Newark, NJ, area from March 2021 to February 2022. Distributions are color coded according to their month.", fig.align = 'center',dpi = 300}
+plot(x = NULL, y = NULL, xlim = c(0,100), ylim = yLimit, axes = FALSE, ann = FALSE)
+
+#abline(h=1.5,lty=2,lwd=2, ) # To create the line at the bottom of the graph that separates 2021 from 2022
+
+# Write out the 2021 and 2022 in th chart. 
+#text(120,1.75,"2021",cex=.75)  
+#text(120,1.25,"2022",cex=.75)
+
+# Draw out your 
+for (i in 1:length(uniqueYears)){
+  YearData <- policeData[years==uniqueYears[i], "age"]# Obtain month data for the current month (i)
+  D <- density(YearData, bw=1)
+  D$y <- ((D$y / max(D$y))+0.5) # Normalize the density values to range between 0 - 1 (makes plotting a lot easier)
+  
+  
+  #Build an index to assign the correct color to current distribution
+  ## I am pretty sure this involves max(D$y) for index I but I have spent 15 hours trying to do this one question so it is what is.
+  
+
+  highfreqtemp <- D$x[D$y==max(D$y)]
+
+  
+  colourIDX <- round(highfreqtemp*length(sunsetColours)/max(policeData$age))
+  colourTIDX <- coloursT
+  
+  polygon(D$x,
+          c(D$y +(i/2)), rep((i/2) - 0.5, D$y[1]),
+          col = add.alpha(sunsetColours[colourIDX],.35),
+          border = NA)
+    
+  lines(D$x,
+        (D$y +(i/2)),
+        lwd = 2,
+        col = sunsetColours[colourIDX])
+  
+  mtext(YearLabels[i],2,at=(D$y[i] +(i/2)),las=1,line=0.5, cex=.75)
+  #lines() # Draw the distribution line
+  #polygon() # Draw the distribution polygon
+
+  
+}
+
+# Define your axis and labels (axis, mtext...)
+axis(1,c(0,100,10), tck=.01,lwd=2, labels=FALSE)
+axis(2,at=seq(0,4,0.5), lwd=2, tck=-.01, labels=FALSE)
+
+mtext("Age (Years)", 1, font=2, line=1.25)
+#mtext()
+mtext(seq(0,100,10),1,at=seq(0,100,10), line=.25,cex=.75)
+#mtext("A. Writing Test Scores:\nNo Test Prep",3,line =.25, font =2,cex=1.25)
+mtext("Frequency of ages of Victims by Year",3,line=.25,font=2,cex=1.25)
+
+```
+
+```{r}
+#PoliceDataARMEDMT
+```
+
+## POLICE ARMED THREAT MALE 
+```{r}
+
+
+years1 <- substr(PoliceDataARMEDMT$date,1, 4)
+uniqueYears1 <- unique(years1)
+YearLabels1 <- c("2015", "2016","2017","2018","2019",  "2020","2021")
+
+```
+
+```{r}
+yLimit1 <- range((1:((length(uniqueYears)/2)+2)))
+#xLimit <- range(pretty(length(policeData$manner_of_death)))
+
+
+sunsetColours <- hcl.colors(12,"Sunset")
+```
+
+```{r, fig.width =7, fig.height = 6, fig.cap="Distribution of daily maximum temperatures (in degrees Fahrenheit) for the Newark, NJ, area from March 2021 to February 2022. Distributions are color coded according to their month.", fig.align = 'center',dpi = 300}
+#ONCE AGAIN, MAKE SURE YOU RUN THIS AFTER RERUNNING PoliceDataARMEDMT THAT IS LOCATED AT THE BEGINNING OF THE PROGRAM. MAKE SURE TO NOT RUN THE MAP PROGRAM THAT APPEAR AFTER THAT CODE BECUASE IT ALTERS THE PoliceDataARMEDMT COLUMN.
+
+plot(x = NULL, y = NULL, xlim = c(0,100), ylim = yLimit1, axes = FALSE, ann = FALSE)
+
+#abline(h=1.5,lty=2,lwd=2, ) # To create the line at the bottom of the graph that separates 2021 from 2022
+
+# Write out the 2021 and 2022 in th chart. 
+#text(120,1.75,"2021",cex=.75)  
+#text(120,1.25,"2022",cex=.75)
+
+# Draw out your 
+for (i in 1:length(uniqueYears1)){
+  YearData1 <- PoliceDataARMEDMT[years1==uniqueYears1[i], "age"]# Obtain month data for the current month (i)
+  D1 <- density(YearData1, bw=1)
+  D1$y <- ((D1$y / max(D1$y))+0.5) # Normalize the density values to range between 0 - 1 (makes plotting a lot easier)
+  
+  
+  #Build an index to assign the correct color to current distribution
+  ## I am pretty sure this involves max(D$y) for index I but I have spent 15 hours trying to do this one question so it is what is.
+  
+
+  highfreqtemp1 <- D1$x[D1$y==max(D1$y)]
+
+  
+  colourIDX1 <- round(highfreqtemp1*length(sunsetColours)/max(PoliceDataARMEDMT$age))
+  colourTIDX1 <- coloursT
+  
+  polygon(D1$x,
+          c(D1$y +(i/2)), rep((i/2) - 0.5, D1$y[1]),
+          col = add.alpha(sunsetColours[colourIDX1],.35),
+          border = NA)
+    
+  lines(D1$x,
+        (D1$y +(i/2)),
+        lwd = 2,
+        col = sunsetColours[colourIDX1])
+  
+  mtext(YearLabels1[i],2,at=(D$y[i] +(i/2)),las=1,line=0.5, cex=.75)
+  #lines() # Draw the distribution line
+  #polygon() # Draw the distribution polygon
+
+  
+}
+
+# Define your axis and labels (axis, mtext...)
+axis(1,c(0,100,10), tck=.01,lwd=2, labels=FALSE)
+axis(2,at=seq(0,4,0.5), lwd=2, tck=-.01, labels=FALSE)
+
+mtext("Age (Years)", 1, font=2, line=1.25)
+#mtext()
+mtext(seq(0,100,10),1,at=seq(0,100,10), line=.25,cex=.75)
+#mtext("A. Writing Test Scores:\nNo Test Prep",3,line =.25, font =2,cex=1.25)
+mtext("Frequency of ages of Victims by Year",3,line=.25,font=2,cex=1.25)
+
+```
+
+## COMBINED GRAPHS
+## Green is Whole Data Set and Purple is the Threat Level Armed Males Subset
+
+
+```{r, fig.width =7, fig.height = 6, fig.cap="Distribution of daily maximum temperatures (in degrees Fahrenheit) for the Newark, NJ, area from March 2021 to February 2022. Distributions are color coded according to their month.", fig.align = 'center',dpi = 300}
+
+sunsetColours1 <- hcl.colors(15,"Peach")
+
+plot(x = NULL, y = NULL, xlim = c(0,100), ylim = yLimit1, axes = FALSE, ann = FALSE)
+
+#abline(h=1.5,lty=2,lwd=2, ) # To create the line at the bottom of the graph that separates 2021 from 2022
+
+# Write out the 2021 and 2022 in th chart. 
+#text(120,1.75,"2021",cex=.75)  
+#text(120,1.25,"2022",cex=.75)
+
+# Draw out your 
+for (i in 1:length(uniqueYears1)){
+  YearData1 <- PoliceDataARMEDMT[years1==uniqueYears1[i], "age"]# Obtain month data for the current month (i)
+  D1 <- density(YearData1, bw=1)
+  D1$y <- ((D1$y / max(D1$y))+0.5) # Normalize the density values to range between 0 - 1 (makes plotting a lot easier)
+  
+  
+  #Build an index to assign the correct color to current distribution
+  ## I am pretty sure this involves max(D$y) for index I but I have spent 15 hours trying to do this one question so it is what is.
+  
+
+  highfreqtemp1 <- D1$x[D1$y==max(D1$y)]
+
+  
+  colourIDX1 <- round(highfreqtemp1*length(sunsetColours)/max(PoliceDataARMEDMT$age))
+  colourTIDX1 <- coloursT
+  
+  polygon(D1$x,
+          c(D1$y +(i/2)), rep((i/2) - 0.5, D1$y[1]),
+          col = add.alpha(sunsetColours[colourIDX1],.35),
+          border = NA)
+    
+  lines(D1$x,
+        (D1$y +(i/2)),
+        lwd = 2,
+        col = sunsetColours[colourIDX1])
+  
+  mtext(YearLabels1[i],2,at=(D$y[i] +(i/2)),las=1,line=0.5, cex=.75)
+  #lines() # Draw the distribution line
+  #polygon() # Draw the distribution polygon
+
+  
+}
+
+# Define your axis and labels (axis, mtext...)
+axis(1,c(0,100,10), tck=.01,lwd=2, labels=FALSE)
+axis(2,at=seq(0,4,0.5), lwd=2, tck=-.01, labels=FALSE)
+
+mtext("Age (Years)", 1, font=2, line=1.25)
+#mtext()
+mtext(seq(0,100,10),1,at=seq(0,100,10), line=.25,cex=.75)
+#mtext("A. Writing Test Scores:\nNo Test Prep",3,line =.25, font =2,cex=1.25)
+mtext("Frequency of ages of Victims by Year",3,line=.25,font=2,cex=1.25)
+
+
+
+# Draw out your 
+for (i in 1:length(uniqueYears)){
+  YearData <- policeData[years==uniqueYears[i], "age"]# Obtain month data for the current month (i)
+  D <- density(YearData, bw=1)
+  D$y <- ((D$y / max(D$y))+0.5) # Normalize the density values to range between 0 - 1 (makes plotting a lot easier)
+  
+  
+  #Build an index to assign the correct color to current distribution
+  ## I am pretty sure this involves max(D$y) for index I but I have spent 15 hours trying to do this one question so it is what is.
+  
+colors <- brewer.pal(12,"Paired")
+
+  highfreqtemp <- D$x[D$y==max(D$y)]
+
+  
+  colourIDX <- round(highfreqtemp*length(colors)/max(policeData$age))
+ 
+  
+  polygon(D$x,
+          c(D$y +(i/2)), rep((i/2) - 0.5, D$y[1]),
+          col = add.alpha(colors[colourIDX],.35),
+          border = NA)
+    
+  #add.alpha(colors[colourIDX],.35)
+  #colors[colourIDX])
+  lines(D$x,
+        (D$y +(i/2)),
+        lwd = 2,
+        col = colors[colourIDX])
+  
+  mtext(YearLabels[i],2,at=(D$y[i] +(i/2)),las=1,line=0.5, cex=.75)
+  #lines() # Draw the distribution line
+  #polygon() # Draw the distribution polygon
+
+   
+}
+
+legend("topright", c("Green = Actual data", "Purple = Subset"), bty = "n", border = NA)
+```
+
+
+
+###Creating a heatmap
+```{r}
+#Relabel them as numerical variables using the or functions
+genderRelabel <- factor(policeData$gender, c("F","M"), c(0, 1))    # F is 0, M is 1
+mannerDRelabel <- factor(policeData$manner_of_death, c("shot","shot and Tasered"), c(0, 1))
+
+policeData$gender <- as.integer(as.character(genderRelabel))[genderRelabel]    
+policeData$manner_of_death <- as.integer(as.character(mannerDRelabel))[mannerDRelabel]    
+
+#Organize your data and calculate the appropriate frequencies (number of observations by group)
+
+#create a matrix for males and females that have risk of CHD
+IDXfemale <- policeData$gender == "0"                #filtering though for only women
+policeData.Female <- policeData[IDXfemale,]          #assigning all the female values to new subset
+policeData.Female                                 #print new subset
+
+IDXmale <- policeData$gender == "1" 
+policeData.Male <- policeData[IDXmale,]           #filtering though chdData for only men by ! the women
+#policeData.Male                                   #print
+```
+
+```{r}
+propGender <- NULL
+propGender <- matrix(, nrow =1, ncol = 2)        #making a matrix of 1 row and 2 columns
+colnames(propGender) <- c('Males', 'Females')    #naming the matrix columns to be M & F
+#rownames(propSex) <- "CHD"                    #naming the matrix row to stand for Coronary Heart Disease
+propGender[1,1] <-  sum(policeData.Male$manner_of_death)/ length(policeData.Male$manner_of_death)
+propGender[1,2] <-  sum(policeData.Female$manner_of_death)/ length(policeData.Female$manner_of_death)
+propGender
+```
+
+```{r}
+armeddatarefined <- policeData$armed != "unarmed" 
+armeddata <- policeData[armeddatarefined,]
+armeddatarefined1 <- armeddata$armed != ""
+PoliceDataARMED <- armeddata[armeddatarefined1,]
+
+#unique(PoliceDataARMED$race)
+
+
+PoliceDataARMEDMale <- PoliceDataARMED$gender == "M"
+PoliceDataARMEDM <- PoliceDataARMED[PoliceDataARMEDMale,]
+
+#unique(PoliceDataARMEDM$race)
+
+PoliceDataARMEDMaleThreat <- PoliceDataARMEDM$threat_level == "attack"
+PoliceDataARMEDMT <- PoliceDataARMEDM[PoliceDataARMEDMaleThreat,]
+
+#PoliceDataARMED
+```
+
+```{r}
+unique(PoliceDataARMED$date)
+```
+
+```{r}
+table(PoliceDataARMED['state'])
+```
+
+```{r}
+txt <- "AK  AL  AR  AZ  CA  CO  CT  DC  DE  FL  GA  HI  IA  ID  IL  IN  KS  KY  LA  MA  MD  ME  MI  MN  MO  MS  MT  NC  ND  NE  NH  NJ  NM  NV  NY  OH  OK  OR  PA  RI  SC  SD  TN  TX  UT  VA  VT WA  WI  WV  WY 
+ 34 103  78 241 789 200  18  18  13 355 210  26  36  48 119 106  57  98 104  32  81  26  92  62 136  65  34 164  10  30  16  70 107 100 109 151 150  97 113   3  90  15 158 479  68  95   7 152  96  48  14 "
+data1 <- stack(read.table(text = txt,  header = TRUE, fill = TRUE))
+names(data1)[2] <-'state.abb'
+data1$states <- tolower(state.name[match(data1$state.abb,  state.abb)])
+
+```
+
+```{r}
+mapOfUSA <- map('state',  fill = TRUE,  plot = FALSE)
+namesOfStates <- sapply(strsplit(mapOfUSA$names,  ':'),  function(x)x[1])
+USApolygons <- map2SpatialPolygons(mapOfUSA,  IDs = namesOfStates,  CRS('+proj=longlat'))
+```
+
+```{r}
+idx <- match(unique(namesOfStates),  data1$states)
+data2 <- data.frame(value = data1$value[idx], state = unique(namesOfStates))
+row.names(data2) <- unique(namesOfStates)
+
+USASpatialPolygons <- SpatialPolygonsDataFrame(USApolygons,  data = data2)
+
+```
+
+```{r}
+newcolors <- brewer.pal(n = 9, name = "OrRd")
+spplot(USASpatialPolygons['value'], main = "Armed Males with an Attack Threat Level", sub = "Count Per State", col.regions = newcolors, cuts = 6)
+
+```
+
+```{r}
+
+policeData1$race <- factor(policeData1$race,
+                       levels = c("A", "W", "H", "B", "O" ,"" , "N") ,
+                       labels = c(0,1,2,3,4,5,6))
+
+policedata.male <- policeData1$gender == "M"
+malefatal1 <- policeData1[policedata.male,]
+
+policedata.blackmale <- malefatal1$race == "3"
+blackmalefatal1 <- malefatal1[policedata.blackmale,] #Needs to index the race seperately
+
+policedata.whitemale <- malefatal1$race == "1"
+whitemalefatal1 <- malefatal1[policedata.whitemale,]
+
+propV1J <- NULL ##creates an empty vector
+
+threatlevelLEVELS <- unique(malefatal1$threat_level) 
+
+# Split your dataset according to the levels of your first variable
+datatlL.1 <- malefatal1[malefatal1$threat_level == threatlevelLEVELS[1], ]#attack threat level
+datatlL.2 <-  malefatal1[malefatal1$threat_level == threatlevelLEVELS[2], ]
+datatlL.3 <-  malefatal1[malefatal1$threat_level == threatlevelLEVELS[3], ]
+
+#Represents total number of black males who were labeled with attack
+policedata.white <- datatlL.1$race == "1"
+whitefolk <- datatlL.1[policedata.white,]
+
+#Represents total number of black males who were labeled with attack
+policedata.black <- datatlL.1$race == "3"
+blackfolk <- datatlL.1[policedata.black,]
+```
+
+Creating a histogram that compares the ages of black males with an attack threat level and white males with an attack threat level
+```{r}
+policedata.combined <- malefatal1$threat_level == "attack"
+combinedmalefatal1 <- malefatal1[policedata.combined, ]
+
+#myMatrix1 <- matrix(c(1,1,2,2), nrow = 2, ncol =2, byrow = TRUE) #Indicates one chart will be given the full row whereas the other chart will occupy the row under it
+#layout(myMatrix1, widths = c(1,1), heights = c(1,.64), respect = TRUE) #Widths control how many quarters a plot takes. Heights is for the heights of rows. 
+#par(mai=c(.07,.7,.4,.04)) #Controls the margins of white space between the two charts. Need to be optimized to bring them together.
+
+
+xLim <- range(combinedmalefatal1$age)
+xLim <- range(pretty(combinedmalefatal1$age)) #Will represent the range of the objective metric as the pretty function 
+p3 <- hist(blackfolk$age, main = NULL, col=rgb(0,0,1,1/4), axes = FALSE, labels = FALSE,xlim=xLim, ylim = c(14,300), xlab = "", xaxt = "n") #maps the histogram of male scores on the math exam. Sets the y-limit and x-limit
+p4 <- hist(whitefolk$age,  main = NULL, col=rgb(1,0,0,1/4), axes = FALSE, labels = FALSE,xlim=xLim, ylim = c(14,300), xlab = "", xaxt = "n", add=T)
+
+axis(2, at = seq(14, 300,10), tck = -.01, lwd = 2, labels = FALSE)
+mtext(pretty (c(14, 300)), 2, at = pretty (c(14, 300)), las = 1, line = .25)
+
+legend("bottomright", c("Black males", "White males"), fill = c(rgb(0,0,1,1/4),rgb(1,0,0,1/4)), bty = "n", border = NA)
+
+#par(mar=c(2,4,.08,.1))
+
+xticks1 <- pretty(range(combinedmalefatal1$age))
+
+axis(1, at = xticks1, tck = -.01, lwd = 2, labels = FALSE)
+mtext(pretty (c(14, 91)), 1, at = xticks1, las = 1, line = .5)
+mtext(c("Ages"), 1.8, font = 2, line =3, las = 1)
+mtext("Ages of males who were described with an attack threat level", 3, line = -.70, font = 2, adj = 0)
+```
+
+
+
+Normality of Ages
+```{r, fig.align = 'center'}
+par(mfcol = c(1,2), omi = c(.5, .5, .5, .5), mai = c(.5, .5, .5, .5))
+outblacks <- qqnorm(blackfolk$age, plot.it = FALSE)
+yTicks <- pretty(range(outblacks$y))
+xTicks <- pretty(range(outblacks$x))
+yLim <- range(yTicks)
+xLim <- range(xTicks)
+
+qqnorm(blackfolk$age, 
+       axes = FALSE,
+       ann = FALSE,
+       pch = 21,
+       col = colours[1],
+       bg = coloursT[1],
+       cex = 1.5,
+       xlim = xLim,
+       ylim = yLim,
+       lwd = 1.5)
+qqline(blackfolk$age, col = colours[1], lwd = 3)
+axis(1, at = xTicks, lwd = 2, tck = -0.1, labels = FALSE)
+mtext(xTicks, 1, at = xTicks, line = 1)
+axis(2, at = yTicks, lwd = 2, tck = -0.1, labels = FALSE)
+
+mtext(yTicks, 2, at = yTicks, line = 1, las = 1)
+mtext("Theoretical Quantiles", 1, font =2, line = 1.5)
+mtext("Real Quantiles", 2, font = 2, line = 2)
+mtext("Black Males with Attack Threat Level")
+
+#Now for the math exams from the females
+outwhites <- qqnorm(whitefolk$age, plot.it = FALSE)
+yTicks1 <- pretty(range(outwhites$y))
+xTicks1 <- pretty(range(outwhites$x))
+yLim1 <- range(yTicks1)
+xLim1 <- range(xTicks1)
+
+qqnorm(whitefolk$age, 
+       axes = FALSE,
+       ann = FALSE,
+       pch = 21,
+       col = colours[1],
+       bg = coloursT[1],
+       cex = 1.5,
+       xlim = xLim1,
+       ylim = yLim1,
+       lwd = 1.5)
+qqline(whitefolk$age, col = colours[1], lwd = 3)
+axis(1, at = xTicks1, lwd = 2, tck = -0.1, labels = FALSE)
+mtext(xTicks1, 1, at = xTicks1, line = 1)
+axis(2, at = yTicks1, lwd = 2, tck = -0.1, labels = FALSE)
+
+mtext(yTicks1, 2, at = yTicks1, line = 1, las = 1)
+mtext("Theoretical Quantiles", 1, font =2, line = 1.5)
+mtext("Real Quantiles", 2, font = 2, line = 2)
+mtext("White males with an Attack Threat Level")
+```
+Homogenity of Variance
+```{r}
+leveneTest(c(blackfolk$age, whitefolk$age), as.factor(c(rep(1, length(blackfolk$race)), rep(2,length(whitefolk$race)))))
+```
+t-test
+```{r}
+t.test(blackfolk$age, whitefolk$age, alternative = "less", var.equal = FALSE)
+```
+```{r}
+#length should be the white people with attack threat level
+#The racial groups described with attack threat level as they are compared to their group itself
+propV1J[1] <- sum(whitefolk$race==1) / length(whitemalefatal1$race) ##White
+propV1J[2] <- sum(blackfolk$race==3) / length(blackmalefatal1$race) ##Black
+
+propV1J
+print("0.6625767 of white males who were murdered by the police were described with an attack threat level")
+print("0.6737740 of black males who were murdered by the police were described with an attack threat level")
+```
+Directly answers our alternate hypothesis as it proves how black males has a higher probability in attaining an attack threat level than white male victims. Also, adds context of the racial proportions of the data set.
+```{r,fig.width = 7, fig.height = 6}
+prop2J <- NULL
+#represent the number of the race's males in the correct proportions of the dataset
+prop2J <- c((2608/5833), (1407/5833))
+
+xPos1J <- barplot(propV1J, ylim=c(-1,1),axes=FALSE, col=colours[c(1)],border=NA,beside=TRUE,space=c(0.35))
+axis(2, at=pretty(c(-1,1)), tck=-.01,lwd=2,labels = FALSE )
+mtext(pretty(c(-1,1)),2,at=pretty(c(-1,1)), las=1, line=.25)
+mtext(c("White Males", "Black Males"),1, at=xPos1J, line=.25, font=2,cex=1,padj =1)
+mtext("Frequency",2,line =1.5, font =2, at=0,cex=1) 
+mtext("Risk for Threat Level",3,line =.25, font =2,cex=1.25)
+
+xPos2 <- barplot(-1*(prop2J), ylim=c(-1,1),axes=FALSE, col=coloursT[c(2)],border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+
+legend("bottomright", c("Percentage of attack threat level", "Percentage of racial group in data set"), fill = c(colours[c(1,2)]), bty = "n", border = NA)
+```
+
+
+
+
+## Data wrangling
+### Recategorizing the data in 0 and 1s
+
+```{r}
+policeData$armed[policeData$armed=="unarmed"] <- 0
+policeData$armed[policeData$armed==""] <- 0
+policeData$armed[policeData$armed!=0] <- 1
+
+
+policeData$threat_level[policeData$threat_level=="undetermined"] <- 0
+policeData$threat_level[policeData$threat_level=="other"] <- 0
+policeData$threat_level[policeData$threat_level!=0] <- 1
+
+
+policeData$race[policeData$race=="A"] <- 3
+policeData$race[policeData$race=="W"] <- 0
+policeData$race[policeData$race=="H"] <- 2
+policeData$race[policeData$race=="B"] <- 1
+policeData$race[policeData$race=="O"] <- 4
+policeData$race[policeData$race==""] <- 5
+policeData$race[policeData$race=="N"] <- 6
+
+#str(policeData)
+#policeData
+```
+
+## 0 White 1 Black
+## 1 Threat(Attack) 0 Not(Other/Undetermined)
+## 1 Armed 0 Unarmed
+
+## Turning them into integers
+```{r}
+policeData['TLnumerical'] <- c(as.integer(policeData$threat_level))
+policeData['Rnumerical'] <- c(as.integer(policeData$race))
+#policeData
+```
+
+```{r}
+#PULL OUT 1 AND 3
+PoliceDataWhitesubset <- (policeData$race == "1" | policeData$race =="0")
+PoliceDataBlackWhite <- policeData[PoliceDataWhitesubset,]
+unique(PoliceDataBlackWhite$race)
+
+#PULL OUT 1 AND 3
+PoliceDataWhitesubset2 <- (policeData$race == 0 | policeData$race ==1)
+PoliceDataBlackWhite2 <- policeData[PoliceDataWhitesubset2,]
+
+#PoliceDataBlackWhite2
+#policeDataBlacksubset <- PoliceDataBlack
+```
+
+
+### Training Data
+```{r}
+##This ensures that whoever uses my code, gets the same exact data as I did and makes sure it is not randomized by time stamping "computer time."
+set.seed(1)
+
+##Setting a variable to split my data into training and testing data
+trainingSample <- .75
+
+IDX <- sample(c(TRUE, FALSE), dim(PoliceDataBlackWhite)[1], replace = TRUE, prob = c(trainingSample, 1-trainingSample)) 
+
+trainData <- PoliceDataBlackWhite[IDX,]
+testData <- PoliceDataBlackWhite[!IDX,]
+#dim(trainData) [1] / dim(whoData)[1] #ensuring 75% or close to because it cannot be perfect
+```
+
+
+
+
+### Other Models Used not as the Hypothesis. I used one of them in the slides
+```{r}
+
+#policeData$threat_level <- factor(policeData$threat_level,
+                       #levels = c(0,1),
+                       #labels = c("0", "1"))
+#policeData1
+#is.factor(policeData1$threat_level)
+#as.factor(policeData$threat_level)
+#is.factor(policeData$threat_level)
+#unique(policeData$threat_level)
+#policeData
+#str(policeData)
+model1  <- glm(TLnumerical ~ age+gender+race+body_camera+manner_of_death+flee+is_geocoding_exact, data = trainData, family="binomial")
+model2 <- glm(TLnumerical ~ gender+race, data = trainData, family="binomial")
+model3<-glm(TLnumerical ~ age+gender+race+flee, data = trainData, family="binomial")
+model4<-glm(TLnumerical ~ age+gender+race+flee+body_camera, data = trainData, family="binomial")
+model5  <- glm(TLnumerical ~age+race+body_camera+manner_of_death+flee+signs_of_mental_illness, data = trainData, family="binomial")
+
+
+summary(model1)
+step(model1)
+summary(model2)
+step(model2)
+#step(model3)
+#step(model4)
+#step(model5)
+```
+
+```{r}
+##Predictions recieved by T/F values. The data is 0 and 1 for the Outcome Variable so a 0.5 baseline would break the data down for us
+predictions <- predict(model1, newdata = testData, type ="response") > 0.5
+
+#getting accuracy of my model
+accuracy<-sum(testData$TLnumerical==predictions)/length(testData$TLnumerical)
+accuracy
+
+#Basic classifier accuracy to see if my model is better than just the most basic moel there is
+NoCHDAcc <- sum(testData$TLnumerical==0)/length(testData$TLnumerical)
+YesCHDAcc <- sum(testData$TLnumerical==1)/length(testData$TLnumerical)
+#NoCHDAcc
+#YesCHDAcc
+
+##Running the same code just for the model with all variables to see how well my model does against the second most basic model, in my opinion.
+#predictionsbasic <- predict(modelbasic, newdata = testData, type ="response") > 0.5
+#accuracybasic<-sum(testData$TLnumerical==predictionsbasic)/length(testData$TLnumerical)
+#accuracybasic
+```
+
+```{r}
+## Formulas for different factors of false negatives/positives and positive predictor values.
+##Then saving it into a dataframe, name stolen from Professor Richard
+FN<-sum(testData$TLnumerical==1 & predictions==F)/sum(testData$TLnumerical==1)
+#FN
+FP<-sum(testData$TLnumerical==0 & predictions==T)/sum(testData$TLnumerical==0)
+#FP
+PPV <- sum(testData$TLnumerical==1 & predictions==T)/sum(predictions)
+#PPV
+ConfusionMatrix <- data.frame(Accuracy = c(accuracy),FalseNeg = c(FN), FalsePos = c(FP),PositivePred=c(PPV))
+
+ConfusionMatrix
+```
+
+## Solving for proportions for TL as outcome variable
+```{r}
+
+
+##Creating 4 different matrices for categorical bar graphs
+propV1 <- NULL ##creates an empty vector
+propV2 <- NULL ##creates an empty vector
+propV3 <- NULL ##creates an empty vector
+propV4 <- NULL ##creates an empty vector
+propV5 <- NULL ##creates an empty vector
+propV6 <- NULL ##creates an empty vector
+
+propV1P <-NULL
+propV2P <-NULL
+propV3P <-NULL
+propV4P <-NULL
+propV5P <-NULL
+propV6P <-NULL
+
+
+
+
+# Identify the levels of your predictor variable. For this example, I will pretend that each variable has two levels. That may not be the case for you, make sure that you verify how many levels your predictor variables have in order to get the correct proportions
+
+raceLevels <- unique(PoliceDataBlackWhite$race) 
+#maleLevels
+genderLevels <- unique(PoliceDataBlackWhite$gender) 
+#diabetesLevels
+bodycameraLevels <- unique(PoliceDataBlackWhite$body_camera)
+#prevalentHypLevels
+mannerofdeathLevels <- unique(PoliceDataBlackWhite$manner_of_death)
+#BPMedsLevels
+fleeLevels <- unique(PoliceDataBlackWhite$flee) 
+#diabetesLevels
+geolocationLevels <- unique(PoliceDataBlackWhite$is_geocoding_exact)
+#prevalentHypLevels
+
+
+# Split your dataset according to the levels of your first variable
+datarace.1 <- PoliceDataBlackWhite[PoliceDataBlackWhite$race ==raceLevels[1], ]
+datarace.2 <-  PoliceDataBlackWhite[PoliceDataBlackWhite$race == raceLevels[2], ]
+
+
+datagenders.1 <- PoliceDataBlackWhite[PoliceDataBlackWhite$gender == genderLevels[1], ]
+datagenders.2 <-  PoliceDataBlackWhite[PoliceDataBlackWhite$gender == genderLevels[2], ]
+
+dataBC.1 <- PoliceDataBlackWhite[PoliceDataBlackWhite$body_camera == bodycameraLevels[1], ]
+dataBC.2 <-  PoliceDataBlackWhite[PoliceDataBlackWhite$body_camera == bodycameraLevels[2], ]
+
+dataflee.1 <- PoliceDataBlackWhite[PoliceDataBlackWhite$flee == fleeLevels[1], ]
+dataflee.2 <-  PoliceDataBlackWhite[PoliceDataBlackWhite$flee == fleeLevels[2], ]
+dataflee.3 <- PoliceDataBlackWhite[PoliceDataBlackWhite$flee == fleeLevels[3], ]
+dataflee.4 <-  PoliceDataBlackWhite[PoliceDataBlackWhite$flee == fleeLevels[4], ]
+dataflee.5 <- PoliceDataBlackWhite[PoliceDataBlackWhite$flee == fleeLevels[5], ]
+
+
+dataMOD.1 <- PoliceDataBlackWhite[PoliceDataBlackWhite$manner_of_death == mannerofdeathLevels[1], ]
+dataMOD.2 <-  PoliceDataBlackWhite[PoliceDataBlackWhite$manner_of_death == mannerofdeathLevels[2], ]
+
+datageo.1 <- PoliceDataBlackWhite[PoliceDataBlackWhite$is_geocoding_exact == geolocationLevels[1], ]
+datageo.2 <-  PoliceDataBlackWhite[PoliceDataBlackWhite$is_geocoding_exact == geolocationLevels[2], ]
+
+# Calculate the proportion of observations for each level and store in a matrix
+
+
+propV1[1] <- sum(datarace.1$TLnumerical) / length(datarace.1$TLnumerical)
+propV1[2] <- sum(datarace.2$TLnumerical) / length(datarace.2$TLnumerical)
+
+
+propV2[1] <- sum(datagenders.1$TLnumerical) / length(datagenders.1$TLnumerical)
+propV2[2] <- sum(datagenders.2$TLnumerical) / length(datagenders.2$TLnumerical)
+#propV2
+
+
+
+propV3[1] <- sum(dataBC.1$TLnumerical) / length(dataBC.1$TLnumerical)
+propV3[2] <- sum(dataBC.2$TLnumerical) / length(dataBC.2$TLnumerical)
+#propV3
+
+propV4[1] <- sum(dataMOD.1$TLnumerical) / length(dataMOD.1$TLnumerical)
+propV4[2] <- sum(dataMOD.2$TLnumerical) / length(dataMOD.2$TLnumerical)
+#propV4
+
+propV5[1] <- sum(dataflee.1$TLnumerical) / length(dataflee.1$TLnumerical)
+propV5[2] <- sum(dataflee.2$TLnumerical) / length(dataflee.2$TLnumerical)
+propV5[3] <- sum(dataflee.3$TLnumerical) / length(dataflee.3$TLnumerical)
+propV5[4] <- sum(dataflee.4$TLnumerical) / length(dataflee.4$TLnumerical)
+propV5[5] <- sum(dataflee.5$TLnumerical) / length(dataflee.5$TLnumerical)
+
+#propV3
+
+propV6[1] <- sum(datageo.1$TLnumerical) / length(datageo.1$TLnumerical)
+propV6[2] <- sum(datageo.2$TLnumerical) / length(datageo.2$TLnumerical)
+#propV4
+##testdata for model performace
+##ommitted data for tiny graphs
+
+
+
+
+
+propV1
+propV2
+propV3
+propV4
+propV5
+propV6
+
+```
+
+
+## Likelihood of being threat level attack based on race
+```{r,fig.width = 12, fig.height = 15}
+colors <- brewer.pal(12,"Paired")
+colors <- brewer.pal(12,"Paired")
+
+par(mfrow = c(3,2), mai = c(0.5,0.5,0.5,0.5), omi =c(0.5,0.5,0.5,0.5), xpd=TRUE)
+
+
+##Race
+xPos1 <- barplot(propV1, ylim=c(0,1),axes=FALSE, col=colors[c(1,2)],border=NA,beside=TRUE,space=c(0.35))
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+##tick labeling
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+##X-axis labels for categories
+mtext(c("White","Black"),1, at=xPos1, line=.25, font=2,cex=1,padj =1)
+
+##Y-axis labeling. Stating a number first in mtext, tells where on the graph you want it. 2 means y, x means 1. at tells it where I want the labels.
+mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=1) 
+
+##title for graph. 3 means top and here I did a lot of customization for where I wanted the title to be.
+mtext("A. Risk for threat level attack:\nRace",3,line =.25, font =2,cex=1.25)
+##Summary of my graphing logic
+
+##Gender
+xPos2 <- barplot(propV2, ylim=c(0,1), axes=FALSE, col=colors[c(3,4)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Male","Female"),1, at=xPos2, line=.25, font=2,cex=1,padj =1)##padj adjusts perpendicular distance from bottom
+#mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("B. Risk for threat level attack:\nGender",3,line =.25, font =2,cex=1.25)
+
+
+##BodyCam
+xPos3 <- barplot(propV3, ylim=c(0,1), axes=FALSE, col=colors[c(5,6)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("False","True"), 1, at=xPos3, line=.25, font=2,cex=1, padj =1)
+mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("C. Risk for threat level attack:\nBody Cameras",3,line =.25, font =2,cex=1.25) 
+
+##Mannerof Death
+xPos4 <- barplot(propV4, ylim=c(0,1), axes=FALSE, col=colors[c(7,8)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Shot","Shot & Tasered"),1, at=xPos4, line=.25, font=2,cex=1,padj =1)##padj adjusts perpendicular distance from bottom
+#mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("D. Risk for threat level attack:\nManner of Death",3,line =.25, font =2,cex=1.25)
+
+##Flee
+xPos5 <- barplot(propV5, ylim=c(0,1), axes=FALSE, col=colors[c(9,10,11,12,1)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Not fleeing", "Car", "Foot", "Other" , "Missing" ),cex=1,1, at=xPos5, line=.25, font=2, padj =1)
+mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75)
+mtext("E. Risk for threat level attack:\nFlee",3,line =.25, font =2,cex=1.25) 
+
+##Exact Geolocation
+xPos6 <- barplot(propV6, ylim=c(0,1), axes=FALSE, col=colors[c(2,3)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("True" , "False"), 1, at=xPos6, line=.25, font=2,cex=1, padj =1)
+#mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("F. Risk for threat level attack:\nExact Geolocation",3,line =.25, font =2,cex=1.25) 
+
+
+```
+
+### Model Work Graphing work for props
+```{r}
+
+
+#Categorical Model Data
+##TenYearCHD ~ male+diabetes+prevalentHyp+BPMeds
+#Take exp of est for odds ratio
+testData$predictions <- predictions
+
+##Creating 4 different matrices for categorical bar graphs
+propV12 <- NULL ##creates an empty vector
+propV22 <- NULL ##creates an empty vector
+propV32 <- NULL ##creates an empty vector
+propV42 <- NULL ##creates an empty vector
+propV52 <- NULL ##creates an empty vector
+propV62 <- NULL ##creates an empty vector
+
+
+# Identify the levels of your predictor variable. For this example, I will pretend that each variable has two levels. That may not be the case for you, make sure that you verify how many levels your predictor variables have in order to get the correct proportions
+
+raceLevelsP <- unique(testData$race) 
+#maleLevels
+genderLevelsP <- unique(testData$gender) 
+#diabetesLevels
+bodycameraLevelsP <- unique(testData$body_camera)
+#prevalentHypLevels
+mannerofdeathLevelsP <- unique(testData$manner_of_death)
+#BPMedsLevels
+fleeLevelsP <- unique(testData$flee) 
+#diabetesLevels
+geolocationLevelsP <- unique(testData$is_geocoding_exact)
+#prevalentHypLevels
+
+
+datarace.1P <- testData[testData$race ==raceLevelsP[1], ]
+datarace.2P <-  testData[testData$race == raceLevelsP[2], ]
+
+
+datagenders.1P <- testData[testData$gender == genderLevelsP[1], ]
+datagenders.2P <-  testData[testData$gender == genderLevelsP[2], ]
+
+dataBC.1P <- testData[testData$body_camera == bodycameraLevelsP[1], ]
+dataBC.2P <-  testData[testData$body_camera == bodycameraLevelsP[2], ]
+
+dataflee.1P <- testData[testData$flee == fleeLevelsP[1], ]
+dataflee.2P <-  testData[testData$flee == fleeLevelsP[2], ]
+dataflee.3P <- testData[testData$flee == fleeLevelsP[3], ]
+dataflee.4P <-  testData[testData$flee == fleeLevelsP[4], ]
+dataflee.5P <- testData[testData$flee == fleeLevelsP[5], ]
+
+
+dataMOD.1P <- testData[testData$manner_of_death == mannerofdeathLevelsP[1], ]
+dataMOD.2P <-  testData[testData$manner_of_death == mannerofdeathLevelsP[2], ]
+
+datageo.1P <- testData[testData$is_geocoding_exact == geolocationLevelsP[1], ]
+datageo.2P <-  testData[testData$is_geocoding_exact == geolocationLevelsP[2], ]
+
+
+
+
+propV12[1] <- sum(datarace.1P$predictions) / length(datarace.1$TLnumerical)
+propV12[2] <- sum(datarace.2P$predictions) / length(datarace.2$TLnumerical)
+
+
+propV22[1] <- sum(datagenders.1P$predictions) / length(datagenders.1$TLnumerical)
+propV22[2] <- sum(datagenders.2P$predictions) / length(datagenders.2$TLnumerical)
+#propV2
+
+
+
+propV32[1] <- sum(dataBC.1P$predictions) / length(dataBC.1$TLnumerical)
+propV32[2] <- sum(dataBC.2P$predictions) / length(dataBC.2$TLnumerical)
+#propV3
+
+propV42[1] <- sum(dataMOD.1P$predictions) / length(dataMOD.1$TLnumerical)
+propV42[2] <- sum(dataMOD.2P$predictions) / length(dataMOD.2$TLnumerical)
+#propV4
+
+propV52[1] <- sum(dataflee.1P$predictions) / length(dataflee.1$TLnumerical)
+propV52[2] <- sum(dataflee.2P$predictions) / length(dataflee.2$TLnumerical)
+propV52[3] <- sum(dataflee.3P$predictions) / length(dataflee.3$TLnumerical)
+propV52[4] <- sum(dataflee.4P$predictions) / length(dataflee.4$TLnumerical)
+propV52[5] <- sum(dataflee.5P$predictions) / length(dataflee.5$TLnumerical)
+
+#propV3
+
+propV62[1] <- sum(datageo.1P$predictions) / length(datageo.1$TLnumerical)
+propV62[2] <- sum(datageo.2P$predictions) / length(datageo.2$TLnumerical)
+#propV4
+# Calculate the proportion of observations for each level and store in a matrix
+
+propV12
+propV22
+propV32
+propV42
+propV52
+propV62
+```
+
+
+# Predicitions and Actual Model for Threat Level
+```{r,fig.width = 12, fig.height = 15,fig.cap= "Model vs Actual"}
+colorsT<-add.alpha(colors, .5)
+
+par(mfrow = c(3,2), mai = c(0.5,0.5,0.5,0.5), omi =c(0.5,0.5,0.5,0.5), xpd=TRUE)
+##Race
+xPos1 <- barplot(propV1, ylim=c(0,1),axes=FALSE, col=colors[c(1,2)],border=NA,beside=TRUE,space=c(0.35))
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+##tick labeling
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+##X-axis labels for categories
+mtext(c("White","Black"),1, at=xPos1, line=.25, font=2,cex=1,padj =1)
+
+##Y-axis labeling. Stating a number first in mtext, tells where on the graph you want it. 2 means y, x means 1. at tells it where I want the labels.
+mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=1) 
+
+##title for graph. 3 means top and here I did a lot of customization for where I wanted the title to be.
+mtext("A. Risk for threat level attack:\nRace",3,line =.25, font =2,cex=1.25)
+##Summary of my graphing logic
+xPos12 <- barplot(propV12, ylim=c(0,1),axes=FALSE, col=coloursT[c(1,2)],border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+
+##Y-axis labeling. Stating a number first in mtext, tells where on the graph you want it. 2 means y, x means 1. at tells it where I want the labels.
+mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=1) 
+
+##title for graph. 3 means top and here I did a lot of customization for where I wanted the title to be.
+mtext("A. Risk for threat level attack:\nRace",3,line =.25, font =2,cex=1.25)
+##Summary of my graphing logic
+
+##Gender
+xPos2 <- barplot(propV2, ylim=c(0,1), axes=FALSE, col=colors[c(3,4)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Male","Female"),1, at=xPos2, line=.25, font=2,cex=1,padj =1)##padj adjusts perpendicular distance from bottom
+#mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("B. Risk for threat level attack:\nGender",3,line =.25, font =2,cex=1.25)
+
+xPos2 <- barplot(propV22, ylim=c(0,1),axes=FALSE, col=coloursT[c(1,2)],border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+
+
+
+##BodyCam
+xPos3 <- barplot(propV3, ylim=c(0,1), axes=FALSE, col=colors[c(5,6)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("False","True"), 1, at=xPos3, line=.25, font=2,cex=1, padj =1)
+mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("C. Risk for threat level attack:\nBody Cameras",3,line =.25, font =2,cex=1.25) 
+xPos32 <- barplot(propV32, ylim=c(0,1),axes=FALSE, col=coloursT[c(1,2)],border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+
+##Mannerof Death
+xPos42 <- barplot(propV4, ylim=c(0,1), axes=FALSE, col=colors[c(7,8)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Shot","Shot & Tasered"),1, at=xPos4, line=.25, font=2,cex=1,padj =1)##padj adjusts perpendicular distance from bottom
+#mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("D. Risk for threat level attack:\nManner of Death",3,line =.25, font =2,cex=1.25)
+
+xPos42 <- barplot(propV42, ylim=c(0,1),axes=FALSE, col=coloursT[c(1,2)],border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+
+
+##Flee
+xPos5 <- barplot(propV5, ylim=c(0,1), axes=FALSE, col=colors[c(9,10,11,12,1)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Not fleeing", "Car", "Foot", "Other" , "Missing" ),cex=1,1, at=xPos5, line=.25, font=2, padj =1)
+mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75)
+mtext("E. Risk for threat level attack:\nFlee",3,line =.25, font =2,cex=1.25) 
+
+xPos52 <- barplot(propV52, ylim=c(0,1),axes=FALSE, col=coloursT[c(1,2)],border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+
+
+
+##Exact Geolocation
+xPos6 <- barplot(propV6, ylim=c(0,1), axes=FALSE, col=colors[c(2,3)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("True" , "False"), 1, at=xPos6, line=.25, font=2,cex=1, padj =1)
+#mtext("Proportion of threat level attack",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("F. Risk for threat level attack:\nExact Geolocation",3,line =.25, font =2,cex=1.25) 
+
+xPos62 <- barplot(propV62, ylim=c(0,1),axes=FALSE, col=coloursT[c(1,2)],border=NA,beside=TRUE,space=c(0.35),add=TRUE)
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+
+
+```
+
+#REST OF THE CODE IS FOR REVISION PURPOSES
+
+## Race as Outcome Models
+
+```{r}
+
+set.seed(1)
+
+##Setting a variable to split my data into training and testing data
+trainingSample <- .75
+
+IDX1 <- sample(c(TRUE, FALSE), dim(PoliceDataBlackWhite2)[1], replace = TRUE, prob = c(trainingSample, 1-trainingSample)) 
+
+trainData1 <- PoliceDataBlackWhite2[IDX1,]
+testData1 <- PoliceDataBlackWhite2[!IDX1,]
+#dim(trainData) [1] / dim(whoData)[1] #ensuring 75% or close to because it cannot be perfect
+```
+
+
+```{r}
+
+model12  <- glm(Rnumerical~threat_level+age+gender+body_camera+manner_of_death+flee+is_geocoding_exact, data = trainData1, family="binomial")
+
+model13  <- glm(Rnumerical~threat_level+age+gender+body_camera+manner_of_death+flee, data = trainData1, family="binomial")
+
+model14  <- glm(Rnumerical~+age+gender+body_camera+flee, data = trainData1, family="binomial")
+
+
+summary(model12)
+summary(model13)
+summary(model14)
+#step(model2)
+#step(model3)
+#step(model4)
+#step(model5)
+```
+
+## Predictions of Race as Outcome Variable, Not used for Hyp
+```{r}
+##Predictions recieved by T/F values. The data is 0 and 1 for the Outcome Variable so a 0.5 baseline would break the data down for us
+predictions1 <- predict(model13, newdata = testData1, type ="response") > 0.5
+
+#getting accuracy of my model
+accuracy1<-sum(testData$Rnumerical==predictions1)/length(testData$Rnumerical)
+accuracy1
+
+#Basic classifier accuracy to see if my model is better than just the most basic moel there is
+NoCHDAcc1 <- sum(testData$Rnumerical==0)/length(testData$Rnumerical)
+YesCHDAcc1<- sum(testData$Rnumerical==1)/length(testData$Rnumerical)
+#NoCHDAcc
+#YesCHDAcc
+
+##Running the same code just for the model with all variables to see how well my model does against the second most basic model, in my opinion.
+#predictionsbasic <- predict(modelbasic, newdata = testData, type ="response") > 0.5
+#accuracybasic<-sum(testData$TenYearCHD==predictionsbasic)/length(testData$TenYearCHD)
+#accuracybasic
+```
+
+```{r}
+## Formulas for different factors of false negatives/positives and positive predictor values.
+##Then saving it into a dataframe, name stolen from Professor Richard
+FN1<-sum(testData$Rnumerical==1 & predictions1==F)/sum(testData$Rnumerical==1)
+#FN
+FP1<-sum(testData$Rnumerical==0 & predictions1==T)/sum(testData$Rnumerical==0)
+#FP
+PPV1 <- sum(testData$Rnumerical==1 & predictions1==T)/sum(predictions1)
+#PPV
+ConfusionMatrix1 <- data.frame(Accuracy = c(accuracy1),FalseNeg = c(FN1), FalsePos = c(FP1),PositivePred=c(PPV1))
+
+ConfusionMatrix1
+```
+### Race as outcome variable, also not used
+```{r}
+#Categorical Model Data
+##TenYearCHD ~ male+diabetes+prevalentHyp+BPMeds
+#Take exp of est for odds ratio
+
+##Creating 4 different matrices for categorical bar graphs
+propV11 <- NULL ##creates an empty vector
+propV21 <- NULL ##creates an empty vector
+propV31 <- NULL ##creates an empty vector
+propV41 <- NULL ##creates an empty vector
+propV51 <- NULL ##creates an empty vector
+propV61 <- NULL ##creates an empty vector
+
+
+# Identify the levels of your predictor variable. For this example, I will pretend that each variable has two levels. That may not be the case for you, make sure that you verify how many levels your predictor variables have in order to get the correct proportions
+
+TLLevels1 <- unique(PoliceDataBlackWhite2$TLnumerical) 
+#maleLevels
+genderLevels1 <- unique(PoliceDataBlackWhite2$gender) 
+#diabetesLevels
+bodycameraLevels1 <- unique(PoliceDataBlackWhite2$body_camera)
+#prevalentHypLevels
+mannerofdeathLevels1 <- unique(PoliceDataBlackWhite2$manner_of_death)
+#BPMedsLevels
+fleeLevels1 <- unique(PoliceDataBlackWhite2$flee) 
+#diabetesLevels
+geolocationLevels1 <- unique(PoliceDataBlackWhite2$is_geocoding_exact)
+#prevalentHypLevels
+
+
+# Split your dataset according to the levels of your first variable
+dataTL.11 <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$TLnumerical ==TLLevels1[1], ]
+dataTL.21 <-  PoliceDataBlackWhite2[PoliceDataBlackWhite2$TLnumerical == TLLevels1[2], ]
+
+
+datagenders.11 <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$gender == genderLevels1[1], ]
+datagenders.21 <-  PoliceDataBlackWhite2[PoliceDataBlackWhite2$gender == genderLevels1[2], ]
+
+dataBC.11 <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$body_camera == bodycameraLevels1[1], ]
+dataBC.21 <-  PoliceDataBlackWhite2[PoliceDataBlackWhite2$body_camera == bodycameraLevels1[2], ]
+
+dataflee.11 <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$flee == fleeLevels1[1], ]
+dataflee.21 <-  PoliceDataBlackWhite2[PoliceDataBlackWhite2$flee == fleeLevels1[2], ]
+dataflee.31 <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$flee == fleeLevels1[3], ]
+dataflee.41 <-  PoliceDataBlackWhite2[PoliceDataBlackWhite2$flee == fleeLevels1[4], ]
+dataflee.51 <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$flee == fleeLevels1[5], ]
+
+
+dataMOD.11 <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$manner_of_death == mannerofdeathLevels1[1], ]
+dataMOD.21 <-  PoliceDataBlackWhite2[PoliceDataBlackWhite2$manner_of_death == mannerofdeathLevels1[2], ]
+
+datageo.11 <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$is_geocoding_exact == geolocationLevels1[1], ]
+datageo.21 <-  PoliceDataBlackWhite2[PoliceDataBlackWhite2$is_geocoding_exact == geolocationLevels1[2], ]
+
+# Calculate the proportion of observations for each level and store in a matrix
+
+propV11[1] <- sum(dataTL.11$Rnumerical) / length(dataTL.11$Rnumerical)
+propV11[2] <- sum(dataTL.21$Rnumerical) / length(dataTL.21$Rnumerical)
+#propV1
+
+propV21[1] <- sum(datagenders.11$Rnumerical) / length(datagenders.11$Rnumerical)
+propV21[2] <- sum(datagenders.21$Rnumerical) / length(datagenders.21$Rnumerical)
+#propV2
+
+propV31[1] <- sum(dataBC.11$Rnumerical) / length(dataBC.11$Rnumerical)
+propV31[2] <- sum(dataBC.21$Rnumerical) / length(dataBC.21$Rnumerical)
+#propV3
+
+propV41[1] <- sum(dataMOD.11$Rnumerical) / length(dataMOD.11$Rnumerical)
+propV41[2] <- sum(dataMOD.21$Rnumerical) / length(dataMOD.21$Rnumerical)
+#propV4
+
+propV51[1] <- sum(dataflee.11$Rnumerical) / length(dataflee.11$Rnumerical)
+propV51[2] <- sum(dataflee.21$Rnumerical) / length(dataflee.21$Rnumerical)
+propV51[3] <- sum(dataflee.31$Rnumerical) / length(dataflee.31$Rnumerical)
+propV51[4] <- sum(dataflee.41$Rnumerical) / length(dataflee.41$Rnumerical)
+propV51[5] <- sum(dataflee.51$Rnumerical) / length(dataflee.51$Rnumerical)
+
+#propV3
+
+propV61[1] <- sum(datageo.11$Rnumerical) / length(datageo.11$Rnumerical)
+propV61[2] <- sum(datageo.21$Rnumerical) / length(datageo.21$Rnumerical)
+#propV4
+##testdata for model performace
+##ommitted data for tiny graphs
+
+
+
+
+
+propV11
+propV21
+propV31
+propV41
+propV51
+propV61
+```
+## GRAPHS FOR RACE AS OUTCOME
+
+```{r,fig.width = 12, fig.height = 15}
+colors <- brewer.pal(12,"Paired")
+colors <- brewer.pal(12,"Paired")
+
+par(mfrow = c(3,2), mai = c(0.5,0.5,0.5,0.5), omi =c(0.5,0.5,0.5,0.5), xpd=TRUE)
+
+
+##Race
+xPos1 <- barplot(propV11, ylim=c(0,1),axes=FALSE, col=colors[c(1,2)],border=NA,beside=TRUE,space=c(0.35))
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)
+
+##tick labeling
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+##X-axis labels for categories
+mtext(c("Not a Threat","Is a Threat"),1, at=xPos1, line=.25, font=2,cex=1,padj =1)
+
+##Y-axis labeling. Stating a number first in mtext, tells where on the graph you want it. 2 means y, x means 1. at tells it where I want the labels.
+mtext("Proportion Black",2,line =2.5, font =2, at=0.5,cex=1) 
+
+##title for graph. 3 means top and here I did a lot of customization for where I wanted the title to be.
+mtext("A. Black :\nThreat Level",3,line =.25, font =2,cex=1.25)
+##Summary of my graphing logic
+
+##Gender
+xPos2 <- barplot(propV21, ylim=c(0,1), axes=FALSE, col=colors[c(3,4)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Male","Female"),1, at=xPos2, line=.25, font=2,cex=1,padj =1)##padj adjusts perpendicular distance from bottom
+#mtext("Proportion Black",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("B. Black:\nGender",3,line =.25, font =2,cex=1.25)
+
+
+##BodyCam
+xPos3 <- barplot(propV31, ylim=c(0,1), axes=FALSE, col=colors[c(5,6)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("False","True"), 1, at=xPos3, line=.25, font=2,cex=1, padj =1)
+mtext("Proportion Black",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("C. Black:\nBody Cameras",3,line =.25, font =2,cex=1.25) 
+
+##Mannerof Death
+xPos4 <- barplot(propV41, ylim=c(0,1), axes=FALSE, col=colors[c(7,8)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Shot","Shot & Tasered"),1, at=xPos4, line=.25, font=2,cex=1,padj =1)##padj adjusts perpendicular distance from bottom
+#mtext("Proportion Black",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("D. Black:\nManner of Death",3,line =.25, font =2,cex=1.25)
+
+##Flee
+xPos5 <- barplot(propV51, ylim=c(0,1), axes=FALSE, col=colors[c(9,10,11,12,1)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("Not fleeing", "Car", "Foot", "Other" , "Missing" ),cex=1,1, at=xPos5, line=.25, font=2, padj =1)
+mtext("Proportion Black",2,line =2.5, font =2, at=0.5,cex=.75)
+mtext("E. Black:\nFlee",3,line =.25, font =2,cex=1.25) 
+
+##Exact Geolocation
+xPos6 <- barplot(propV61, ylim=c(0,1), axes=FALSE, col=colors[c(2,3)],border=NA,beside=TRUE,space=c(0.35))
+##no X axis on barplots
+axis(2, at=pretty(c(0,1)), tck=-.01,lwd=2,labels = FALSE)#labels prevents axis from printing those numbers
+#mtext(pretty(c(0,1)),2,at=pretty(c(0,1)), las=1, line=.25)
+mtext(c("True" , "False"), 1, at=xPos6, line=.25, font=2,cex=1, padj =1)
+#mtext("Proportion Black",2,line =2.5, font =2, at=0.5,cex=.75) 
+mtext("F. Black:\nExact Geolocation",3,line =.25, font =2,cex=1.25) 
+
+
+```
+
+
+##Attempt at creating a random stratified sample
+theDataFrame <- data.frame(group = rep(c("White", "African-American"), each = 50), value = runif(100, min = 1, max = 100))
+str(theDataFrame)
+## 'data.frame':    100 obs. of  2 variables:
+##  $ group: chr  "White" "White" "White" "White" ...
+##  $ value: num  97.74 1.33 76.67 42.13 49.53 ...
+
+set.seed(42)
+dataW <- theDataFrame[theDataFrame$group == "White",]
+dataAF <- theDataFrame[theDataFrame$group == "African-American",]
+
+populationWRatio <- .601
+populationAFRatio <- .122
+
+sampleW <- sample(c(TRUE,FALSE), size = dim(dataW)[1], replace = TRUE, prob = c(populationWRatio, 1-populationWRatio))
+sampleAF <- sample(c(TRUE,FALSE), size = dim(dataAF)[1], replace = TRUE, prob = c(populationAFRatio, 1-populationAFRatio))
+
+newData <- data.frame(group = c(dataW[sampleW,"group"], dataAF[sampleAF,"group"]), value = c(dataW[sampleW,"group"], dataAF[sampleAF,"group"]))
+str(newData)
+
+unique(newData)
+###```
+
+
+
+##```{r}
+propssample <- NULL
+races2 <- unique(newData$group)
+for (i in 1:length(races2)){
+  propssample[i] <- sum(newData$group == races2[i])/length(newData$group)
+
+}
+propssample
+##```
+
+#Still trying to create a random stratified sample
+```{r}
+## 0 White 1 Black
+
+set.seed(42)
+dataW <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$race == "0",]
+dataB <- PoliceDataBlackWhite2[PoliceDataBlackWhite2$race == "1",]
+
+populationWRatio <- .453
+populationBRatio <- .238
+
+sampleW <- sample(c(TRUE,FALSE), size = dim(dataW)[1], replace = TRUE, prob = c(populationWRatio, 1-populationWRatio))
+sampleB <- sample(c(TRUE,FALSE), size = dim(dataB)[1], replace = TRUE, prob = c(populationBRatio, 1-populationBRatio))
+
+newData <- data.frame(race = c(dataW[sampleW,"race"], dataB[sampleB,"race"]), value = c(dataW[sampleW,"race"], dataB[sampleB,"race"]))
+str(newData)
+
+unique(newData$race)
+```
+```{r}
+propssample <- NULL
+races2 <- unique(newData$race)
+for (i in 1:length(races2)){
+  propssample[i] <- sum(newData$race == races2[i])/length(newData$race)
+
+}
+propssample
+```
+
+```{r}
+xPos1 <- barplot(propssample, ylim=c(-0.8,0.8),axes=FALSE, col=colours,border=NA,beside=TRUE,space=c(0.35))
+axis(2, at=pretty(c(-0.8,0.8)), tck=-.01,lwd=2,labels = FALSE )
+mtext(pretty(c(-0.8,0.8)),2,at=pretty(c(-0.8,0.8)), las=1, line=.25)
+mtext(c("White", "Black"),1, at=xPos1, line=.25, font=2,cex=1,padj =1)
+mtext("Proportion of fatal police shootings",2,line =2.5, font =2, at=0,cex=1) 
+mtext("A. Fatal Police Shootings and Race",3,line =.25, font =2,cex=1.25)
+```

@@ -5,7 +5,7 @@ output: github_document
 ---
 
 ```{r}
-Sys.setenv(RSTUDIO_PANDOC="C:/Program Files/RStudio/bin/pandoc")
+#Sys.setenv(RSTUDIO_PANDOC="C:/Program Files/RStudio/bin/pandoc")
 ```
 
 ```{r setup, include=FALSE}
@@ -14,13 +14,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 #install.packages("rapport")
+#install.packages("RColorBrewer")
 library(RColorBrewer)
-library(GISTools)
+#install.packages("GISTools")
+#library(GISTools)
 library(corrplot)
 library(rapport)
 library(mlogit)
 #install.packages("maps")
-#install.packages("maptools")
+#install.packages("maptools", repos = "https://packagemanager.posit.co/cran/2023-10-13")
+
 #install.packages("sp")
 library(maps)
 library(maptools)
@@ -29,7 +32,10 @@ suppressMessages(library(car))
 
 
 colours <- brewer.pal(8, "Pastel2")
-coloursT <- add.alpha(colours, .5)
+
+coloursT <- adjustcolor( colours, alpha.f = 0.2)
+
+
 ```
 
 ## File
@@ -83,7 +89,6 @@ mtext("Proportion of fatal police shootings",2,line =2.5, font =2, at=0.2,cex=1)
 mtext("A. Fatal Police Shootings and Race",3,line =.25, font =2,cex=1.25)
 
 xPos2 <- barplot((-1*(prop1)), ylim=c(-0.8,0.8),axes=FALSE, col=coloursT,border=NA,beside=TRUE,space=c(0.35),add=TRUE)
-
 
 #barplot(prop)
 ```
@@ -202,7 +207,7 @@ for (i in 1:length(uniqueYears)){
   
   polygon(D$x,
           c(D$y +(i/2)), rep((i/2) - 0.5, D$y[1]),
-          col = add.alpha(sunsetColours[colourIDX],.35),
+          col = adjustcolor(sunsetColours[colourIDX], alpha.f = 0.2),
           border = NA)
     
   lines(D$x,
@@ -281,7 +286,7 @@ for (i in 1:length(uniqueYears1)){
   
   polygon(D1$x,
           c(D1$y +(i/2)), rep((i/2) - 0.5, D1$y[1]),
-          col = add.alpha(sunsetColours[colourIDX1],.35),
+          col = adjustcolor(sunsetColours[colourIDX1], alpha.f = 0.2),
           border = NA)
     
   lines(D1$x,
@@ -343,7 +348,7 @@ for (i in 1:length(uniqueYears1)){
   
   polygon(D1$x,
           c(D1$y +(i/2)), rep((i/2) - 0.5, D1$y[1]),
-          col = add.alpha(sunsetColours[colourIDX1],.35),
+          col = adjustcolor(sunsetColours[colourIDX1], alpha.f = 0.2),
           border = NA)
     
   lines(D1$x,
@@ -390,10 +395,9 @@ colors <- brewer.pal(12,"Paired")
   
   polygon(D$x,
           c(D$y +(i/2)), rep((i/2) - 0.5, D$y[1]),
-          col = add.alpha(colors[colourIDX],.35),
+          col = adjustcolor(colors[colourIDX], alpha.f = 0.2),
           border = NA)
     
-  #add.alpha(colors[colourIDX],.35)
   #colors[colourIDX])
   lines(D$x,
         (D$y +(i/2)),
@@ -1080,7 +1084,8 @@ propV62
 
 # Predicitions and Actual Model for Threat Level
 ```{r,fig.width = 12, fig.height = 15,fig.cap= "Model vs Actual"}
-colorsT<-add.alpha(colors, .5)
+colorsT <- adjustcolor(colors, alpha.f = 0.2)
+
 
 par(mfrow = c(3,2), mai = c(0.5,0.5,0.5,0.5), omi =c(0.5,0.5,0.5,0.5), xpd=TRUE)
 ##Race
